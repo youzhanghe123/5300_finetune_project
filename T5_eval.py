@@ -70,6 +70,50 @@ def compute_metrics(eval_pred):
         "rougeL": rouge_results["rougeL"],
     }
 
+def tokenize_function(examples):
+    # Add the T5 prefix for summarization
+    prefix = "summarize: "
+    inputs = [prefix + str(doc) for doc in examples["text"]]
+
+    # Tokenize inputs with padding and truncation
+    model_inputs = tokenizer(
+        inputs,
+        max_length=512,
+        padding='max_length',
+        truncation=True,
+        return_tensors='pt'
+    )
+
+    # Tokenize targets
+    with tokenizer.as_target_tokenizer():
+        labels = tokenizer(
+            [str(summary) for summary in examples["summary"]],
+            max_length=128,
+            padding='max_length',
+            truncation=True,
+            return_tensors='pt'
+        )
+
+    # Convert to lists and handle padding
+    model_inputs["labels"] = labels["input_ids"]
+
+    return model_inputs
+
+
+tokenized_train = train_dataset.map(
+    tokenize_function,
+    batched=True,
+    remove_columns=train_dataset.column_names,
+
+)
+
+tokenized_test = test_dataset.map(
+    tokenize_function,
+    batched=True,
+    remove_columns=test_dataset.column_names,
+
+)
+
 training_args = Seq2SeqTrainingArguments(
     output_dir="./results",
     evaluation_strategy="epoch",
